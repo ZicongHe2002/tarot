@@ -7,9 +7,11 @@ a PostgreSQL database in Render's Virginia region. The first service start runs
 `prisma db push` and the idempotent seed, so the 78-card deck, articles,
 products, prices, versions, and feature flags are ready automatically.
 
-1. Push this directory to a GitHub, GitLab, or Bitbucket repository.
-2. In Render, choose **New → Blueprint**, connect the repository, and select
-   the repository-root `render.yaml` when prompted.
+1. Push the project to a GitHub, GitLab, or Bitbucket repository. In this
+   repository the application lives in the `web/` directory.
+2. In Render, choose **New → Blueprint**, connect the repository, and enter
+   `web/render.yaml` as the Blueprint Path. The Blueprint sets the service
+   root directory to `web`, so its npm commands run beside `package.json`.
 3. When Render asks for values, enter a real support email for
    `NEXT_PUBLIC_SUPPORT_EMAIL` and the governing-law location you have chosen
    for `NEXT_PUBLIC_LEGAL_JURISDICTION` (for example, `New York, United States`).
