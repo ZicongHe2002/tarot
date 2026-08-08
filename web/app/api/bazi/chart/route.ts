@@ -8,7 +8,7 @@ import { baziEngine, versionsJson } from "@/lib/providers";
 import { sanitizeQuestion } from "@/lib/safety";
 import { safetyEvent, audit } from "@/lib/audit";
 import { resolveBirthPlace } from "@/lib/geo";
-import { hasPremium, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
+import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 
 const Body = z.object({
   kind: z.enum(["natal", "annual"]).default("natal"),
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ blocked: true });
   }
 
-  const premium = await hasPremium(user?.id);
+  const premium = await hasUnlimitedAccess(user?.id);
   if (!premium) {
     const jar = await cookies();
     if (user) {

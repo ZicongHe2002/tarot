@@ -27,7 +27,11 @@ products, prices, versions, and feature flags are ready automatically.
    usable and clearly labels interpretations as samples.
 7. To enable email sign-in, add `RESEND_API_KEY` and a verified-domain
    `EMAIL_FROM` in the same Environment page, then redeploy.
-8. When adding a custom domain, set `APP_BASE_URL=https://yourdomain.com` (no
+8. To give invited users unlimited interpretations, add a strong
+   `UNLIMITED_ACCESS_CODE` (20+ random characters) and redeploy. Share the
+   `/{locale}/access` page, not the Render environment screen. Rotating or
+   deleting this variable immediately invalidates existing access grants.
+9. When adding a custom domain, set `APP_BASE_URL=https://yourdomain.com` (no
    trailing slash) and redeploy. Use the same origin for OAuth callbacks and
    Stripe webhook/redirect configuration.
 

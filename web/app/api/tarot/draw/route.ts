@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import crypto from "crypto";
 import { createTarotReading, type TarotMode } from "@/lib/readings";
 import { getSessionUser } from "@/lib/session";
-import { hasPremium, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
+import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 
 const Body = z.object({
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Free-tier metering for non-daily interpretations (server-enforced).
-  const premium = await hasPremium(user?.id);
+  const premium = await hasUnlimitedAccess(user?.id);
   if (!premium) {
     if (user) {
       const used = await freeInterpretationsUsed(user.id);

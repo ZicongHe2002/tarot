@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSessionUser } from "@/lib/session";
 import { getDailyGuidance } from "@/lib/daily";
-import { hasPremium, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
+import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 import { prisma } from "@/lib/prisma";
 
 const Body = z.object({
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     where: { profileId_date_locale: { profileId: parsed.data.profileId, date, locale: parsed.data.locale } },
   });
   if (!existing) {
-    const premium = await hasPremium(user.id);
+    const premium = await hasUnlimitedAccess(user.id);
     if (!premium && (await freeInterpretationsUsed(user.id)) >= FREE_MONTHLY_INTERPRETATIONS) {
       return NextResponse.json({ error: "quota_exceeded", upgrade: true }, { status: 402 });
     }

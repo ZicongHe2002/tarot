@@ -7,6 +7,7 @@ import { M, t } from "@/lib/i18n/messages";
 import { pageMetadata } from "@/lib/seo";
 import { Card, Alert } from "@/components/ui/card";
 import { SubscribeButtons } from "@/components/payments/subscribe-buttons";
+import { isAccessCodeConfigured } from "@/lib/access-code";
 
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
@@ -48,6 +49,15 @@ export default async function PricingPage({ params }: { params: Promise<{ locale
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
       <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">{t(M.pricingTitle, lo)}</h1>
+
+      {isAccessCodeConfigured() && (
+        <Alert tone="success" className="mt-6 max-w-3xl">
+          {lo === "zh" ? "已有访问码？" : "Have an access code?"}{" "}
+          <Link href={`/${lo}/access`} className="font-medium underline underline-offset-4">
+            {lo === "zh" ? "在这里解锁不限次数使用" : "Unlock unlimited use here"}
+          </Link>
+        </Alert>
+      )}
 
       <div className="mt-8 grid gap-4 lg:grid-cols-3">
         <Card>

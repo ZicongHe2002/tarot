@@ -8,7 +8,7 @@ import { astrologyEngine, versionsJson } from "@/lib/providers";
 import { sanitizeQuestion } from "@/lib/safety";
 import { safetyEvent, audit } from "@/lib/audit";
 import { resolveBirthPlace } from "@/lib/geo";
-import { hasPremium, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
+import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 
 // Birth data arrives in the POST body and lives only in the database —
 // never in URLs, logs, or analytics (spec §8).
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Metering (calculation itself is free; interpretation is the metered part).
-  const premium = await hasPremium(user?.id);
+  const premium = await hasUnlimitedAccess(user?.id);
   if (!premium) {
     const jar = await cookies();
     if (user) {

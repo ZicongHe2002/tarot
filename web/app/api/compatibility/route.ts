@@ -8,7 +8,7 @@ import { computeCompatibility } from "@/lib/compat";
 import { resolveBirthPlace } from "@/lib/geo";
 import { getInterpretationEngine, versionsJson } from "@/lib/providers";
 import { RealAstrologyEngine } from "@/lib/providers/astrology";
-import { hasPremium, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
+import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 import { audit } from "@/lib/audit";
 
 const Person = z.object({
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   const { mode, locale, a, b } = parsed.data;
 
-  const premium = await hasPremium(user?.id);
+  const premium = await hasUnlimitedAccess(user?.id);
   if (!premium) {
     const jar = await cookies();
     if (user) {

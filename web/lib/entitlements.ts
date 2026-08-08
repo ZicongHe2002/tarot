@@ -1,4 +1,5 @@
 import { prisma } from "./prisma";
+import { hasAccessCodeGrant } from "./access-code";
 
 export async function hasPremium(userId: string | null | undefined): Promise<boolean> {
   if (!userId) return false;
@@ -12,6 +13,11 @@ export async function hasPremium(userId: string | null | undefined): Promise<boo
   if (!sub) return false;
   if (sub.currentPeriodEnd && sub.currentPeriodEnd < new Date()) return false;
   return true;
+}
+
+export async function hasUnlimitedAccess(userId: string | null | undefined): Promise<boolean> {
+  if (await hasAccessCodeGrant()) return true;
+  return hasPremium(userId);
 }
 
 export const FREE_MONTHLY_INTERPRETATIONS = 3;
