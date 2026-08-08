@@ -19,7 +19,7 @@ products, prices, versions, and feature flags are ready automatically.
    public launch.
 4. Review the two resources and click **Apply**. The first deploy takes longer
    because Render installs dependencies, builds Next.js, creates the schema,
-   and seeds the database.
+   seeds application content, and imports the bundled world-city database.
 5. Open the web service's `onrender.com` URL. `APP_BASE_URL` automatically falls
    back to Render's `RENDER_EXTERNAL_URL` for this initial domain.
 6. To enable live AI interpretations, add `DEEPSEEK_API_KEY` in the web
@@ -52,9 +52,9 @@ aware of Render's current free-tier constraints:
 - Email magic links use Resend's HTTPS API, avoiding the free service's blocked
   outbound SMTP ports. Set `RESEND_API_KEY` and a verified-domain `EMAIL_FROM`
   in the web service environment before enabling email sign-in.
-- The large GeoNames city dataset is not committed or imported by the
-  Blueprint. Tarot works immediately; import cities separately if you want the
-  full astrology/BaZi place picker (see the production database steps below).
+- The compressed GeoNames city dataset is bundled with the application. On the
+  first service start, Render imports it automatically; later starts detect the
+  completed table and skip the import.
 
 `/api/health` is the Render health-check endpoint. Render supplies `PORT`, and
 Next.js `next start` reads it automatically while binding to `0.0.0.0`.

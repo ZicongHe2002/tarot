@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "render:build": "npm run db:gen:prod && prisma generate --schema prisma/schema.prod.prisma && next build --webpack",
-    "render:start": "npm run db:push:prod && npm run db:seed && npm start",
+    "render:start": "npm run db:push:prod && npm run db:seed && npm run db:cities && npm start",
     "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",

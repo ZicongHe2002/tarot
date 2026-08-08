@@ -42,7 +42,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-data/geo/
+data/geo/*
+!data/geo/README.md
+!data/geo/admin1CodesASCII.txt
+!data/geo/cities1000.zip
 
 # Generated Prisma prod schema (from schema.prisma)
 prisma/schema.prod.prisma

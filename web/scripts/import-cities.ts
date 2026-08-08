@@ -3,6 +3,7 @@
 import fs from "fs";
 import path from "path";
 import readline from "readline";
+import { spawnSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -21,16 +22,34 @@ async function loadAdmin1(): Promise<Map<string, string>> {
 
 async function main() {
   const citiesFile = path.join(GEO_DIR, "cities1000.txt");
+  const citiesZip = path.join(GEO_DIR, "cities1000.zip");
+  const existing = await prisma.city.count();
+
+  // A normal Render restart should not re-import 170k rows. If an earlier
+  // import was interrupted, clear the partial table and rebuild it below.
+  if (existing >= 150_000) {
+    console.log(`City table already has ${existing} rows — import skipped.`);
+    return;
+  }
+
+  if (!fs.existsSync(citiesFile) && fs.existsSync(citiesZip)) {
+    console.log("Extracting bundled GeoNames city data…");
+    const result = spawnSync("unzip", ["-o", citiesZip, "-d", GEO_DIR], {
+      stdio: "inherit",
+    });
+    if (result.status !== 0) {
+      throw new Error(`Could not extract ${citiesZip}`);
+    }
+  }
+
   if (!fs.existsSync(citiesFile)) {
-    console.error(
-      "Missing data/geo/cities1000.txt — download https://download.geonames.org/export/dump/cities1000.zip and unzip into data/geo/"
+    throw new Error(
+      "Missing data/geo/cities1000.txt and cities1000.zip — restore the bundled GeoNames archive"
     );
-    process.exit(1);
   }
   const admin1 = await loadAdmin1();
-  const existing = await prisma.city.count();
   if (existing > 0) {
-    console.log(`City table already has ${existing} rows — clearing for re-import.`);
+    console.log(`City table has only ${existing} rows — clearing interrupted import.`);
     await prisma.city.deleteMany();
   }
 
