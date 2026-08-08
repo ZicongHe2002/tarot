@@ -1,0 +1,419 @@
+// SINGLE SOURCE OF TRUTH for the data model. Local dev uses SQLite (zero
+// setup). Production uses PostgreSQL: `npm run db:gen:prod` generates
+// prisma/schema.prod.prisma from THIS file with the provider swapped to
+// postgresql (Prisma forbids env() in `provider`, so we generate a variant
+// rather than branch at runtime). The models are identical and portable:
+// no Prisma enums (string unions validated with Zod), JSON as String columns.
+// Schema changes apply with `prisma db push` (see DEPLOYMENT.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Auth (Auth.js standard models) ----------
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  role          String    @default("user") // "user" | "admin"
+  locale        String    @default("en") // "en" | "zh"
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts       Account[]
+  sessions       Session[]
+  profiles       BirthProfile[]
+  tarotReadings  TarotReading[]
+  astroCharts    AstrologyChart[]
+  baziCharts     BaziChart[]
+  dailyGuidance  DailyGuidance[]
+  compatibility  CompatibilityReport[]
+  journalEntries JournalEntry[]
+  savedItems     SavedItem[]
+  subscriptions  Subscription[]
+  orders         Order[]
+  consents       ConsentRecord[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Profiles & readings ----------
+
+// Sensitive birth data. Never expose in URLs, analytics, or share cards.
+model BirthProfile {
+  id             String   @id @default(cuid())
+  userId         String
+  label          String // display name chosen by the user, e.g. "Me"
+  dateISO        String // "1992-08-08"
+  time           String? // "14:30" local; null = unknown birth time
+  timeKnown      Boolean  @default(true)
+  cityId         String? // bundled city id
+  cityLabel      String? // display label only
+  country        String?
+  tz             String // IANA zone
+  lat            Float
+  lon            Float
+  sex            String? // "male" | "female" | null — used only for BaZi luck-pillar direction
+  primaryInterest String  @default("general") // "tarot"|"astrology"|"bazi"|"general"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tarotReadings TarotReading[]
+  astroCharts   AstrologyChart[]
+  baziCharts    BaziChart[]
+  dailyGuidance DailyGuidance[]
+}
+
+model TarotCard {
+  id          Int    @id // 0-77 stable deck index
+  slug        String @unique
+  arcana      String // "major" | "minor"
+  suit        String? // wands|cups|swords|pentacles
+  number      Int?
+  contentJson String // bilingual TarotCardContent
+}
+
+model TarotReading {
+  id                   String   @id @default(cuid())
+  accessToken          String   @unique // guest capability URL token
+  userId               String?
+  profileId            String?
+  mode                 String // daily|one_card|three_card|yes_no
+  topic                String?
+  questionSanitized    String?
+  safetyLevel          String   @default("ok") // ok|high_stakes|crisis
+  spreadJson           String // deterministic draw result (immutable)
+  interpretationJson   String?
+  interpretationStatus String   @default("pending") // pending|generating|completed|failed|blocked
+  isMock               Boolean  @default(false)
+  versionsJson         String // engine/prompt/model/safety versions (§20)
+  createdAt            DateTime @default(now())
+  user    User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile BirthProfile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+}
+
+model AstrologyChart {
+  id           String   @id @default(cuid())
+  accessToken  String   @unique
+  userId       String?
+  profileId    String?
+  kind         String   @default("natal") // natal|transits
+  calcJson     String // deterministic engine output
+  interpretationJson   String?
+  interpretationStatus String @default("pending")
+  isMock       Boolean  @default(false)
+  versionsJson String
+  createdAt    DateTime @default(now())
+  user    User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile BirthProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model BaziChart {
+  id           String   @id @default(cuid())
+  accessToken  String   @unique
+  userId       String?
+  profileId    String?
+  kind         String   @default("natal") // natal|annual
+  calcJson     String
+  interpretationJson   String?
+  interpretationStatus String @default("pending")
+  isMock       Boolean  @default(false)
+  versionsJson String
+  createdAt    DateTime @default(now())
+  user    User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile BirthProfile? @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model DailyGuidance {
+  id           String   @id @default(cuid())
+  userId       String
+  profileId    String
+  date         String // "2026-07-16" in profile-local terms
+  locale       String
+  contentJson  String
+  isMock       Boolean  @default(false)
+  versionsJson String
+  createdAt    DateTime @default(now())
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile BirthProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, date, locale])
+}
+
+model CompatibilityReport {
+  id           String   @id @default(cuid())
+  accessToken  String   @unique
+  userId       String?
+  mode         String // astrology|bazi|combined
+  inputJson    String // derived placements only — no exact birth data
+  calcJson     String
+  interpretationJson   String?
+  interpretationStatus String @default("pending")
+  isMock       Boolean  @default(false)
+  shareToken   String?  @unique // privacy-safe share card
+  versionsJson String
+  createdAt    DateTime @default(now())
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // tarot|daily_guidance|note
+  refId     String? // TarotReading/DailyGuidance id
+  title     String
+  notes     String   @default("")
+  mood      String?
+  tagsJson  String   @default("[]")
+  favorite  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SavedItem {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String
+  refId     String
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind, refId])
+}
+
+// ---------- Commerce (md §7/§9/§14 + spec §15) ----------
+
+model Product {
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  kind            String // "subscription" | "one_time"
+  nameJson        String // bilingual
+  descriptionJson String
+  active          Boolean @default(true)
+  prices          Price[]
+  orders          Order[]
+}
+
+// Prices are database configuration, not code constants (spec §15).
+model Price {
+  id              String  @id @default(cuid())
+  productId       String
+  currency        String  @default("usd")
+  unitAmountCents Int
+  interval        String? // "month" | "year" | null for one-time
+  stripePriceId   String?
+  active          Boolean @default(true)
+  product         Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orders          Order[]
+  subscriptions   Subscription[]
+}
+
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String
+  priceId              String
+  status               String // active|trialing|past_due|canceled|incomplete
+  stripeSubscriptionId String?   @unique
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  price Price @relation(fields: [priceId], references: [id])
+}
+
+// One-time report orders (guest checkout allowed) — md §7.3 state machine.
+model Order {
+  id                    String    @id @default(cuid())
+  token                 String    @unique
+  userId                String?
+  productId             String
+  priceId               String
+  locale                String
+  currency              String
+  amountCents           Int
+  status                String    @default("created")
+  email                 String?
+  stripeSessionId       String?
+  stripePaymentIntentId String?
+  readingKind           String? // which generated report this order buys
+  readingRefId          String? // TarotReading/AstrologyChart/BaziChart id
+  generationAttempts    Int       @default(0)
+  generationStartedAt   DateTime?
+  lastError             String?
+  createdAt             DateTime  @default(now())
+  paidAt                DateTime?
+  completedAt           DateTime?
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  product Product @relation(fields: [productId], references: [id])
+  price   Price   @relation(fields: [priceId], references: [id])
+  reports GeneratedReport[]
+
+  @@index([stripeSessionId])
+  @@index([stripePaymentIntentId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String?
+  orderId     String?
+  provider    String // "stripe" | "mock"
+  providerRef String?
+  amountCents Int
+  currency    String
+  status      String // succeeded|refunded|partially_refunded|failed|disputed
+  createdAt   DateTime @default(now())
+}
+
+model GeneratedReport {
+  id           String   @id @default(cuid())
+  orderId      String
+  kind         String
+  contentJson  String
+  versionsJson String
+  createdAt    DateTime @default(now())
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model ConsentRecord {
+  id             String   @id @default(cuid())
+  userId         String?
+  orderId        String?
+  kind           String // digital_delivery_waiver | journal_ai_optin | terms
+  wordingVersion String
+  locale         String
+  createdAt      DateTime @default(now())
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WebhookEvent {
+  id          String    @id // provider event id — dedup (§14)
+  type        String
+  payloadJson String
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+}
+
+// ---------- Versioning, safety, ops ----------
+
+model PromptVersion {
+  id        String   @id @default(cuid())
+  key       String // "interpretation_system"
+  version   String
+  body      String
+  active    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([key, version])
+}
+
+model CalculationVersion {
+  id              String   @id @default(cuid())
+  engine          String // astrology|bazi|tarot
+  version         String
+  methodologyJson String // house system, solar-time policy, etc.
+  active          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  @@unique([engine, version])
+}
+
+model SafetyEvent {
+  id        String   @id @default(cuid())
+  userId    String? // anonymized in admin views
+  refId     String?
+  kind      String
+  detail    String // category labels only — never raw user text
+  createdAt DateTime @default(now())
+}
+
+model AuditEvent {
+  id        String   @id @default(cuid())
+  kind      String
+  ref       String
+  actorId   String?
+  detail    String
+  createdAt DateTime @default(now())
+}
+
+model ContentArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  contentJson String // bilingual ArticleContent
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model FeatureFlag {
+  key     String  @id
+  enabled Boolean @default(false)
+  note    String  @default("")
+}
+
+// World cities (GeoNames cities1000, CC-BY 4.0) — full country/city birth-place
+// coverage with per-city IANA timezone. Imported by scripts/import-cities.ts.
+model City {
+  id         Int    @id // GeoNames id
+  name       String
+  ascii      String
+  country    String // ISO-3166 alpha-2
+  admin1     String @default("") // state/province display name
+  lat        Float
+  lon        Float
+  tz         String
+  population Int
+
+  @@index([country, population])
+  @@index([country, ascii])
+}
+
+model DataRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  kind      String // export | deletion
+  status    String   @default("completed") // requested|processing|completed
+  createdAt DateTime @default(now())
+}

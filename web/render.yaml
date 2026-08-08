@@ -1,0 +1,39 @@
+# Render Blueprint: creates the Next.js web service and its PostgreSQL database.
+# Both resources use the free plan for an easy first preview. Before a real
+# launch, upgrade the database (free Render Postgres expires after 30 days).
+services:
+  - type: web
+    name: luminary-tarot-web
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm ci && npm run render:build
+    startCommand: npm run render:start
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: luminary-tarot-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      - key: NEXT_PUBLIC_BRAND_NAME
+        value: Luminary
+      - key: NEXT_PUBLIC_BRAND_NAME_ZH
+        value: 明鉴
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        sync: false
+      - key: NEXT_PUBLIC_LEGAL_JURISDICTION
+        sync: false
+
+databases:
+  - name: luminary-tarot-db
+    plan: free
+    region: virginia
+    postgresMajorVersion: "17"
+    databaseName: luminary
+    user: luminary
+    ipAllowList: []
