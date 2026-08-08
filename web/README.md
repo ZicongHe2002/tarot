@@ -44,7 +44,8 @@ button. Nothing mock is ever presented as live.
 |---|---|---|
 | DeepSeek (interpretation only) | set `DEEPSEEK_API_KEY` | model `deepseek-v4-pro` via `DEEPSEEK_MODEL`; legacy `deepseek-chat`/`deepseek-reasoner` are deprecated 2026-07-24 |
 | Stripe | set `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`, run `stripe listen --forward-to localhost:3000/api/stripe/webhook` | **Get written category approval first — see Payment-provider risk** |
-| Email sign-in | set `RESEND_API_KEY` + `EMAIL_FROM` | uses Resend's HTTPS API (works on Render free); dev mode prints magic links + `/api/dev/magic-link` |
+| Token accounts | set `ACCESS_ACCOUNT_TOKENS` | comma/newline-separated personal tokens; each token is a separate account with profiles and unlimited interpretations |
+| Email sign-in (optional later) | set `RESEND_API_KEY` + `EMAIL_FROM` | uses Resend's HTTPS API (works on Render free); dev mode prints magic links + `/api/dev/magic-link` |
 | Google OAuth | set `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | button appears automatically |
 
 ### Swapping calculation engines

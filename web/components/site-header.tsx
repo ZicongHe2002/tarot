@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { auth } from "@/auth";
 import { BRAND, type Locale } from "@/lib/config";
 import { M, t } from "@/lib/i18n/messages";
+import { getSessionUser } from "@/lib/session";
 import { HeaderControls, MobileNav } from "./header-controls";
 
 const NAV: Array<{ href: string; key: keyof typeof M }> = [
@@ -16,8 +16,7 @@ const NAV: Array<{ href: string; key: keyof typeof M }> = [
 ];
 
 export async function SiteHeader({ locale }: { locale: Locale }) {
-  const session = await auth();
-  const signedIn = !!session?.user;
+  const signedIn = !!(await getSessionUser());
   const items = NAV.map((n) => ({ href: `/${locale}${n.href}`, label: t(M[n.key] as { en: string; zh: string }, locale) }));
 
   return (

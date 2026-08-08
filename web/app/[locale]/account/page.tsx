@@ -9,7 +9,7 @@ import { SignOutButton } from "@/components/account/signout-button";
 
 export const metadata = { robots: { index: false, follow: false } };
 
-function sections(locale: Locale) {
+function sections(locale: Locale, accessAccount: boolean) {
   return [
     {
       href: `/${locale}/account/profiles`,
@@ -43,7 +43,7 @@ function sections(locale: Locale) {
           ? "永久删除账户与个人数据。"
           : "Permanently delete your account and personal data.",
     },
-  ];
+  ].filter((section) => !accessAccount || !section.href.endsWith("/subscription"));
 }
 
 export default async function AccountPage({ params }: { params: Promise<{ locale: string }> }) {
@@ -66,9 +66,21 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
           <Card className="mt-8 flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm text-[var(--fg-muted)]">
-                {locale === "zh" ? "登录邮箱" : "Signed in as"}
+                {user.authMethod === "access"
+                  ? locale === "zh"
+                    ? "Token 独立账号"
+                    : "Independent token account"
+                  : locale === "zh"
+                    ? "登录邮箱"
+                    : "Signed in as"}
               </p>
-              <p className="mt-1 break-all font-medium">{user.email}</p>
+              <p className="mt-1 break-all font-medium">
+                {user.authMethod === "access"
+                  ? locale === "zh"
+                    ? "档案与记录仅属于此 token"
+                    : "Profiles and history belong only to this token"
+                  : user.email}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <Badge tone={user.role === "admin" ? "gold" : "default"}>
@@ -80,12 +92,12 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
                     ? "普通用户"
                     : "Member"}
               </Badge>
-              <SignOutButton locale={locale} />
+              <SignOutButton locale={locale} accessAccount={user.authMethod === "access"} />
             </div>
           </Card>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {sections(locale).map((s) => (
+            {sections(locale, user.authMethod === "access").map((s) => (
               <Link key={s.href} href={s.href} className="group block">
                 <Card className="h-full transition-colors group-hover:border-primary/50">
                   <h2 className="font-display text-lg font-semibold">{s.title}</h2>

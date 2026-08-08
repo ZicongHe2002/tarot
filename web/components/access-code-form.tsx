@@ -20,7 +20,7 @@ export function AccessCodeForm({ locale, configured, active }: { locale: Locale;
     const response = await fetch("/api/access-code", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, locale }),
     }).catch(() => null);
     setBusy(false);
     if (!response?.ok) {
@@ -51,7 +51,7 @@ export function AccessCodeForm({ locale, configured, active }: { locale: Locale;
     return (
       <Card className="max-w-xl border-el-wood/50">
         <Alert tone="success">
-          {locale === "zh" ? "无限访问已在此浏览器启用。" : "Unlimited access is active in this browser."}
+            {locale === "zh" ? "此 token 账号已在本浏览器登录，并启用无限访问。" : "This token account is signed in with unlimited access."}
         </Alert>
         <div className="mt-5 flex flex-wrap gap-3">
           <Link
@@ -61,7 +61,7 @@ export function AccessCodeForm({ locale, configured, active }: { locale: Locale;
             {locale === "zh" ? "开始使用" : "Start a reading"}
           </Link>
           <Button variant="outline" onClick={remove} disabled={busy}>
-            {locale === "zh" ? "从此浏览器移除" : "Remove from this browser"}
+            {locale === "zh" ? "退出此 token 账号" : "Sign out of this token account"}
           </Button>
         </div>
       </Card>
@@ -77,7 +77,7 @@ export function AccessCodeForm({ locale, configured, active }: { locale: Locale;
       ) : (
         <form onSubmit={redeem} className="grid gap-4">
           <label htmlFor="access-code" className="text-sm font-medium">
-            {locale === "zh" ? "访问码" : "Access code"}
+            {locale === "zh" ? "专属 token" : "Personal token"}
           </label>
           <input
             id="access-code"
@@ -91,7 +91,7 @@ export function AccessCodeForm({ locale, configured, active }: { locale: Locale;
           />
           {error && <Alert tone="warn">{error}</Alert>}
           <Button type="submit" disabled={busy || !code.trim()}>
-            {busy ? (locale === "zh" ? "验证中…" : "Checking…") : locale === "zh" ? "解锁无限访问" : "Unlock unlimited access"}
+            {busy ? (locale === "zh" ? "验证中…" : "Checking…") : locale === "zh" ? "使用 token 登录" : "Sign in with token"}
           </Button>
         </form>
       )}

@@ -3,11 +3,13 @@ import { z } from "zod";
 import {
   ACCESS_GRANT_COOKIE,
   ACCESS_GRANT_MAX_AGE_SECONDS,
+  accessAccountId,
   isAccessCodeConfigured,
   issueAccessGrant,
 } from "@/lib/access-code";
+import { ensureAccessAccountUser } from "@/lib/access-account";
 
-const Body = z.object({ code: z.string().min(1).max(256) });
+const Body = z.object({ code: z.string().min(1).max(256), locale: z.enum(["en", "zh"]).default("en") });
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILURES = 8;
 const failures = new Map<string, { count: number; resetAt: number }>();
@@ -47,12 +49,14 @@ export async function POST(req: NextRequest) {
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   const token = parsed.success ? issueAccessGrant(parsed.data.code) : null;
-  if (!token) {
+  const accountId = parsed.success ? accessAccountId(parsed.data.code) : null;
+  if (!token || !accountId || !parsed.success) {
     recordFailure(key);
     return NextResponse.json({ error: "invalid_access_code" }, { status: 401 });
   }
 
   failures.delete(key);
+  await ensureAccessAccountUser(accountId, parsed.data.locale);
   const response = NextResponse.json({ ok: true });
   response.cookies.set({
     name: ACCESS_GRANT_COOKIE,

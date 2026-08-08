@@ -52,9 +52,9 @@ export default async function PricingPage({ params }: { params: Promise<{ locale
 
       {isAccessCodeConfigured() && (
         <Alert tone="success" className="mt-6 max-w-3xl">
-          {lo === "zh" ? "已有访问码？" : "Have an access code?"}{" "}
+          {lo === "zh" ? "已有专属 token？" : "Have a personal token?"}{" "}
           <Link href={`/${lo}/access`} className="font-medium underline underline-offset-4">
-            {lo === "zh" ? "在这里解锁不限次数使用" : "Unlock unlimited use here"}
+            {lo === "zh" ? "登录独立账号并解锁不限次数使用" : "Sign in to your account and unlock unlimited use"}
           </Link>
         </Alert>
       )}

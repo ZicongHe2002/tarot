@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/session";
 import { audit } from "@/lib/audit";
+import { ACCESS_GRANT_COOKIE } from "@/lib/access-code";
 
 const Body = z.object({ confirm: z.literal("DELETE") });
 
@@ -25,5 +26,6 @@ export async function POST(req: NextRequest) {
   for (const name of ["authjs.session-token", "__Secure-authjs.session-token"]) {
     res.cookies.set(name, "", { maxAge: 0, path: "/" });
   }
+  res.cookies.set(ACCESS_GRANT_COOKIE, "", { maxAge: 0, path: "/" });
   return res;
 }

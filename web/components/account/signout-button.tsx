@@ -6,7 +6,7 @@ import type { Locale } from "@/lib/config";
 import { M, t } from "@/lib/i18n/messages";
 import { Button } from "@/components/ui/button";
 
-export function SignOutButton({ locale }: { locale: Locale }) {
+export function SignOutButton({ locale, accessAccount = false }: { locale: Locale; accessAccount?: boolean }) {
   const [busy, setBusy] = React.useState(false);
   return (
     <Button
@@ -15,7 +15,12 @@ export function SignOutButton({ locale }: { locale: Locale }) {
       onClick={async () => {
         setBusy(true);
         try {
-          await signOut({ callbackUrl: "/" + locale });
+          if (accessAccount) {
+            await fetch("/api/access-code", { method: "DELETE" });
+            window.location.href = `/${locale}/access`;
+          } else {
+            await signOut({ callbackUrl: "/" + locale });
+          }
         } catch {
           setBusy(false);
         }

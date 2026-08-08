@@ -25,12 +25,18 @@ products, prices, versions, and feature flags are ready automatically.
 6. To enable live AI interpretations, add `DEEPSEEK_API_KEY` in the web
    service's **Environment** page and redeploy. Without it, the site remains
    usable and clearly labels interpretations as samples.
-7. To enable email sign-in, add `RESEND_API_KEY` and a verified-domain
-   `EMAIL_FROM` in the same Environment page, then redeploy.
-8. To give invited users unlimited interpretations, add a strong
-   `UNLIMITED_ACCESS_CODE` (20+ random characters) and redeploy. Share the
-   `/{locale}/access` page, not the Render environment screen. Rotating or
-   deleting this variable immediately invalidates existing access grants.
+7. Email sign-in can stay disabled for a token-only launch. If you enable it
+   later, add `RESEND_API_KEY` and a verified-domain `EMAIL_FROM` in the same
+   Environment page, then redeploy.
+8. To create token-based accounts without email registration, add
+   `ACCESS_ACCOUNT_TOKENS` with one strong token per person (20+ random
+   characters, separated by commas or line breaks) and redeploy. Each token has
+   its own profiles, journal, and reading history plus unlimited
+   interpretations. Share the `/{locale}/access` page and one unique token per
+   person. Removing a token immediately revokes that account's active browser
+   grants; never give the same token to unrelated people because they would see
+   the same private account data. `UNLIMITED_ACCESS_CODE` remains supported as
+   a legacy single-token fallback.
 9. When adding a custom domain, set `APP_BASE_URL=https://yourdomain.com` (no
    trailing slash) and redeploy. Use the same origin for OAuth callbacks and
    Stripe webhook/redirect configuration.

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { isLocale } from "@/lib/config";
 import { M, t } from "@/lib/i18n/messages";
 import { getSessionUser } from "@/lib/session";
 import { Alert } from "@/components/ui/card";
 import { SignInForm } from "@/components/account/signin-form";
+import { isAccessCodeConfigured } from "@/lib/access-code";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -12,6 +13,9 @@ export default async function SignInPage({ params }: { params: Promise<{ locale:
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const user = await getSessionUser();
+  if (!user && process.env.NODE_ENV === "production" && isAccessCodeConfigured()) {
+    redirect(`/${locale}/access`);
+  }
   // Server component reads env and passes plain booleans to the client form.
   const googleEnabled = !!process.env.GOOGLE_CLIENT_ID;
   const devHint = process.env.NODE_ENV !== "production" && !process.env.RESEND_API_KEY;
@@ -26,7 +30,9 @@ export default async function SignInPage({ params }: { params: Promise<{ locale:
         {user ? (
           <Alert tone="success" className="mx-auto max-w-md">
             {locale === "zh" ? "你已登录为 " : "You are already signed in as "}
-            <span className="font-medium break-all">{user.email}</span>
+            <span className="font-medium break-all">
+              {user.authMethod === "access" ? (locale === "zh" ? "Token 独立账号" : "token account") : user.email}
+            </span>
             {locale === "zh" ? "。" : "."}{" "}
             <Link
               href={`/${locale}/account`}

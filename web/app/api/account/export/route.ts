@@ -26,7 +26,7 @@ export async function GET() {
   const parse = (s: string | null) => (s ? JSON.parse(s) : null);
   const body = {
     exportedAt: new Date().toISOString(),
-    email: user.email,
+    email: user.authMethod === "access" ? null : user.email,
     profiles,
     readings: {
       tarot: tarot.map((r) => ({ ...r, spreadJson: parse(r.spreadJson), interpretationJson: parse(r.interpretationJson) })),
