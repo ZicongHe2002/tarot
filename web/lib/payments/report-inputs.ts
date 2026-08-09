@@ -11,7 +11,7 @@ import { RealAstrologyEngine } from "../providers/astrology";
 import { resolveBirthPlace } from "../geo";
 import type { LocaleCode } from "../providers/types";
 
-const BirthInput = z.object({
+const ManualBirthInput = z.object({
   dateISO: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   cityId: z.string().optional(),
@@ -20,6 +20,13 @@ const BirthInput = z.object({
   tz: z.string().optional(),
   sex: z.enum(["male", "female"]).nullable().optional(),
 });
+
+const SavedBirthInput = z.object({
+  profileId: z.string().min(1),
+  sex: z.enum(["male", "female"]).nullable().optional(),
+});
+
+const BirthInput = z.union([ManualBirthInput, SavedBirthInput]);
 
 export const REPORT_INPUT_SCHEMAS = {
   "tarot-deep-reading": z.object({
@@ -33,7 +40,23 @@ export const REPORT_INPUT_SCHEMAS = {
 
 export type ReportSlug = keyof typeof REPORT_INPUT_SCHEMAS;
 
-async function resolvePlace(b: z.infer<typeof BirthInput>) {
+async function resolvePlace(b: z.infer<typeof BirthInput>, userId: string | null) {
+  if ("profileId" in b) {
+    if (!userId) throw new Error("unauthenticated_profile");
+    const profile = await prisma.birthProfile.findFirst({
+      where: { id: b.profileId, userId },
+    });
+    if (!profile) throw new Error("invalid_profile");
+    return {
+      profileId: profile.id,
+      dateISO: profile.dateISO,
+      time: profile.timeKnown && profile.time ? profile.time : undefined,
+      lat: profile.lat,
+      lon: profile.lon,
+      tz: profile.tz,
+      sex: b.sex ?? (profile.sex as "male" | "female" | null),
+    };
+  }
   const place = await resolveBirthPlace(b);
   if (!place) throw new Error("invalid_place");
   return { dateISO: b.dateISO, time: b.time, lat: place.lat, lon: place.lon, tz: place.tz, sex: b.sex ?? null };
@@ -65,13 +88,14 @@ export async function createLockedReading(
 
   if (slug === "natal-report" || slug === "bazi-report") {
     const data = parsed.data as { birth: z.infer<typeof BirthInput> };
-    const place = await resolvePlace(data.birth);
+    const place = await resolvePlace(data.birth, userId);
     if (slug === "natal-report") {
       const result = await astrologyEngine.calculateNatalChart(place);
       const row = await prisma.astrologyChart.create({
         data: {
           accessToken: newAccessToken(),
           userId,
+          profileId: place.profileId ?? null,
           kind: "natal",
           calcJson: JSON.stringify(result.calc),
           interpretationStatus: "awaiting_payment",
@@ -85,6 +109,7 @@ export async function createLockedReading(
       data: {
         accessToken: newAccessToken(),
         userId,
+        profileId: place.profileId ?? null,
         kind: "natal",
         calcJson: JSON.stringify(result.calc),
         interpretationStatus: "awaiting_payment",
@@ -96,8 +121,8 @@ export async function createLockedReading(
 
   // compatibility-report
   const data = parsed.data as { a: z.infer<typeof BirthInput>; b: z.infer<typeof BirthInput> };
-  const a = await resolvePlace(data.a);
-  const b = await resolvePlace(data.b);
+  const a = await resolvePlace(data.a, userId);
+  const b = await resolvePlace(data.b, userId);
   const labelA = locale === "zh" ? "甲方" : "Person A";
   const labelB = locale === "zh" ? "乙方" : "Person B";
   const { calc } = computeCompatibility("combined", { ...a, label: labelA }, { ...b, label: labelB });

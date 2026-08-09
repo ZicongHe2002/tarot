@@ -40,5 +40,6 @@ test.describe("profiles and account lifecycle", () => {
       ).status()
     ).toBe(401);
     expect((await request.get("/api/account/export")).status()).toBe(401);
+    expect((await request.get("/api/account/profiles?locale=zh")).status()).toBe(401);
   });
 });

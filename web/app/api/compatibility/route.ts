@@ -11,7 +11,7 @@ import { RealAstrologyEngine } from "@/lib/providers/astrology";
 import { hasUnlimitedAccess, freeInterpretationsUsed, FREE_MONTHLY_INTERPRETATIONS } from "@/lib/entitlements";
 import { audit } from "@/lib/audit";
 
-const Person = z.object({
+const ManualPerson = z.object({
   dateISO: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   cityId: z.string().optional(),
@@ -21,6 +21,13 @@ const Person = z.object({
   sex: z.enum(["male", "female"]).nullable().optional(),
 });
 
+const SavedPerson = z.object({
+  profileId: z.string().min(1),
+  sex: z.enum(["male", "female"]).nullable().optional(),
+});
+
+const Person = z.union([ManualPerson, SavedPerson]);
+
 const Body = z.object({
   mode: z.enum(["astrology", "bazi", "combined"]),
   locale: z.enum(["en", "zh"]).default("en"),
@@ -28,7 +35,23 @@ const Body = z.object({
   b: Person,
 });
 
-async function resolve(p: z.infer<typeof Person>, label: string) {
+async function resolve(p: z.infer<typeof Person>, label: string, userId?: string) {
+  if ("profileId" in p) {
+    if (!userId) return null;
+    const profile = await prisma.birthProfile.findFirst({
+      where: { id: p.profileId, userId },
+    });
+    if (!profile) return null;
+    return {
+      dateISO: profile.dateISO,
+      time: profile.timeKnown && profile.time ? profile.time : undefined,
+      lat: profile.lat,
+      lon: profile.lon,
+      tz: profile.tz,
+      sex: p.sex ?? (profile.sex as "male" | "female" | null),
+      label,
+    };
+  }
   const place = await resolveBirthPlace(p);
   if (!place) return null;
   return { dateISO: p.dateISO, time: p.time, lat: place.lat, lon: place.lon, tz: place.tz, sex: p.sex ?? null, label };
@@ -59,8 +82,8 @@ export async function POST(req: NextRequest) {
   // Neutral labels — never customer-entered names of third parties (spec §13).
   const labelA = locale === "zh" ? "甲方" : "Person A";
   const labelB = locale === "zh" ? "乙方" : "Person B";
-  const pa = await resolve(a, labelA);
-  const pb = await resolve(b, labelB);
+  const pa = await resolve(a, labelA, user?.id);
+  const pb = await resolve(b, labelB, user?.id);
   if (!pa || !pb) return NextResponse.json({ error: "invalid_input" }, { status: 400 });
   const { calc, warnings } = computeCompatibility(mode, pa, pb);
 

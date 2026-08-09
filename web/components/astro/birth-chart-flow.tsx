@@ -35,7 +35,11 @@ export function BirthChartFlow({ locale }: { locale: Locale }) {
     const res = await fetch("/api/astrology/chart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "natal", locale: lo, birth: birthPayload(birth) }),
+      body: JSON.stringify({
+        kind: "natal",
+        locale: lo,
+        ...(birth.profileId ? { profileId: birth.profileId } : { birth: birthPayload(birth) }),
+      }),
     });
     setBusy(false);
     if (res.status === 402) {
@@ -66,7 +70,7 @@ export function BirthChartFlow({ locale }: { locale: Locale }) {
   return (
     <form onSubmit={submit} className="max-w-2xl" noValidate>
       <Card>
-        <BirthFields locale={lo} value={birth} onChange={setBirth} errors={errors} idPrefix="astro" />
+        <BirthFields locale={lo} value={birth} onChange={setBirth} errors={errors} idPrefix="astro" allowProfileSelection />
         <p className="mt-4 text-xs leading-relaxed text-[var(--fg-muted)]">{t(M.profilePrivacyNote, lo)}</p>
         <div className="mt-5">
           <Button type="submit" disabled={busy}>

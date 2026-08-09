@@ -113,8 +113,12 @@ export function CompatFlow({ mode, locale }: { mode: Mode; locale: Locale }) {
         body: JSON.stringify({
           mode,
           locale: lo,
-          a: { ...birthPayload(a), sex: needsSex ? sexA ?? null : null },
-          b: { ...birthPayload(b), sex: needsSex ? sexB ?? null : null },
+          a: a.profileId
+            ? { profileId: a.profileId, sex: needsSex ? sexA ?? null : null }
+            : { ...birthPayload(a), sex: needsSex ? sexA ?? null : null },
+          b: b.profileId
+            ? { profileId: b.profileId, sex: needsSex ? sexB ?? null : null }
+            : { ...birthPayload(b), sex: needsSex ? sexB ?? null : null },
         }),
       });
       if (res.status === 402) {
@@ -241,14 +245,25 @@ function PersonCard({
   onChange: (v: BirthValue) => void;
   errors: PersonErrors;
   sex?: Sex;
-  onSexChange?: (s: Sex) => void;
+  onSexChange?: (s: Sex | undefined) => void;
 }) {
   const lo = locale;
   return (
     <Card>
       <h2 className="font-display text-xl font-semibold">{heading}</h2>
       <div className="mt-4">
-        <BirthFields locale={lo} value={value} onChange={onChange} errors={errors} idPrefix={idPrefix} />
+        <BirthFields
+          locale={lo}
+          value={value}
+          onChange={onChange}
+          errors={errors}
+          idPrefix={idPrefix}
+          allowProfileSelection
+          profilePickerLabel={
+            lo === "zh" ? `选择${heading}档案` : `Choose ${heading.toLowerCase()} profile`
+          }
+          onProfileSelect={(profile) => onSexChange?.(profile.sex)}
+        />
       </div>
       {onSexChange && (
         <div className="mt-4">

@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const p = await assertOwnsProfile(user.id, profileId).catch(() => null);
     if (!p) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     birth = { dateISO: p.dateISO, time: p.timeKnown && p.time ? p.time : undefined, lat: p.lat, lon: p.lon, tz: p.tz };
-    effectiveSex = (p.sex as "male" | "female" | null) ?? sex;
+    effectiveSex = sex ?? (p.sex as "male" | "female" | null);
   } else {
     const b = parsed.data.birth;
     if (!b) return NextResponse.json({ error: "invalid_input" }, { status: 400 });

@@ -56,8 +56,19 @@ export function OrderFlow({ locale, product }: { locale: Locale; product: OrderP
     const input = isTarot
       ? { topic, question: question || undefined }
       : needsTwo
-        ? { a: { ...birthPayload(birth), sex: (sexA || null) as "male" | "female" | null }, b: { ...birthPayload(birthB), sex: (sexB || null) as "male" | "female" | null } }
-        : { birth: { ...birthPayload(birth), sex: (sexA || null) as "male" | "female" | null } };
+        ? {
+            a: birth.profileId
+              ? { profileId: birth.profileId, sex: (sexA || null) as "male" | "female" | null }
+              : { ...birthPayload(birth), sex: (sexA || null) as "male" | "female" | null },
+            b: birthB.profileId
+              ? { profileId: birthB.profileId, sex: (sexB || null) as "male" | "female" | null }
+              : { ...birthPayload(birthB), sex: (sexB || null) as "male" | "female" | null },
+          }
+        : {
+            birth: birth.profileId
+              ? { profileId: birth.profileId, sex: (sexA || null) as "male" | "female" | null }
+              : { ...birthPayload(birth), sex: (sexA || null) as "male" | "female" | null },
+          };
     const res = await fetch("/api/checkout", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -135,7 +146,15 @@ export function OrderFlow({ locale, product }: { locale: Locale; product: OrderP
         <div className="grid gap-6">
           <div>
             {needsTwo && <h2 className="font-display mb-3 text-lg font-semibold">{t(M.compatPersonA, lo)}</h2>}
-            <BirthFields locale={lo} value={birth} onChange={setBirth} idPrefix="oa" />
+            <BirthFields
+              locale={lo}
+              value={birth}
+              onChange={setBirth}
+              idPrefix="oa"
+              allowProfileSelection
+              profilePickerLabel={needsTwo ? (lo === "zh" ? "选择甲方档案" : "Choose person A profile") : undefined}
+              onProfileSelect={(profile) => setSexA(profile.sex ?? "")}
+            />
             {(product.slug === "bazi-report" || needsTwo) && (
               <fieldset className="mt-3">
                 <legend className="mb-2 text-sm font-medium">
@@ -151,7 +170,15 @@ export function OrderFlow({ locale, product }: { locale: Locale; product: OrderP
           {needsTwo && (
             <div>
               <h2 className="font-display mb-3 text-lg font-semibold">{t(M.compatPersonB, lo)}</h2>
-              <BirthFields locale={lo} value={birthB} onChange={setBirthB} idPrefix="ob" />
+              <BirthFields
+                locale={lo}
+                value={birthB}
+                onChange={setBirthB}
+                idPrefix="ob"
+                allowProfileSelection
+                profilePickerLabel={lo === "zh" ? "选择乙方档案" : "Choose person B profile"}
+                onProfileSelect={(profile) => setSexB(profile.sex ?? "")}
+              />
               <fieldset className="mt-3">
                 <legend className="mb-2 text-sm font-medium">
                   {t(M.baziSexLabel, lo)} <span className="font-normal text-[var(--fg-muted)]">({t(M.optional, lo)})</span>

@@ -41,7 +41,7 @@ export function BaziFlow({ locale }: { locale: Locale }) {
       body: JSON.stringify({
         kind: "natal",
         locale: lo,
-        birth: birthPayload(birth),
+        ...(birth.profileId ? { profileId: birth.profileId } : { birth: birthPayload(birth) }),
         sex: sex || null,
       }),
     });
@@ -74,7 +74,15 @@ export function BaziFlow({ locale }: { locale: Locale }) {
   return (
     <form onSubmit={submit} className="max-w-2xl" noValidate>
       <Card>
-        <BirthFields locale={lo} value={birth} onChange={setBirth} errors={errors} idPrefix="bazi" />
+        <BirthFields
+          locale={lo}
+          value={birth}
+          onChange={setBirth}
+          errors={errors}
+          idPrefix="bazi"
+          allowProfileSelection
+          onProfileSelect={(profile) => setSex(profile.sex ?? "")}
+        />
         <fieldset className="mt-4">
           <legend className="mb-2 text-sm font-medium">
             {t(M.baziSexLabel, lo)} <span className="font-normal text-[var(--fg-muted)]">({t(M.optional, lo)})</span>

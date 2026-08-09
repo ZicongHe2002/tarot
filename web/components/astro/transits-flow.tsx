@@ -30,7 +30,11 @@ export function TransitsFlow({ locale }: { locale: Locale }) {
     const res = await fetch("/api/astrology/chart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "transits", locale: lo, birth: birthPayload(birth) }),
+      body: JSON.stringify({
+        kind: "transits",
+        locale: lo,
+        ...(birth.profileId ? { profileId: birth.profileId } : { birth: birthPayload(birth) }),
+      }),
     });
     setBusy(false);
     if (res.status === 402) {
@@ -59,7 +63,7 @@ export function TransitsFlow({ locale }: { locale: Locale }) {
   return (
     <form onSubmit={submit} className="max-w-2xl" noValidate>
       <Card>
-        <BirthFields locale={lo} value={birth} onChange={setBirth} errors={errors} idPrefix="transit" />
+        <BirthFields locale={lo} value={birth} onChange={setBirth} errors={errors} idPrefix="transit" allowProfileSelection />
         <div className="mt-5">
           <Button type="submit" disabled={busy}>
             {busy ? t(M.loading, lo) : t(M.astroTransits, lo)}

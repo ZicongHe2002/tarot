@@ -6,12 +6,14 @@
 // timezone list as the universal fallback. Values are POSTed in request
 // bodies — birth details never enter URLs (spec §8).
 import * as React from "react";
+import Link from "next/link";
 import type { Locale } from "@/lib/config";
 import { M, t } from "@/lib/i18n/messages";
-import { Input, Label, Checkbox, FieldError } from "@/components/ui/form";
+import { Input, Label, Checkbox, FieldError, Select } from "@/components/ui/form";
 import { Combobox, type ComboOption } from "@/components/ui/combobox";
 
 export interface BirthValue {
+  profileId?: string;
   dateISO: string;
   time?: string;
   timeKnown: boolean;
@@ -21,6 +23,20 @@ export interface BirthValue {
   lat?: number;
   lon?: number;
   tz?: string;
+}
+
+export interface SavedBirthProfile extends BirthValue {
+  id: string;
+  label: string;
+  time: string | undefined;
+  country: string | undefined;
+  cityId: string | undefined;
+  cityLabel: string | undefined;
+  lat: number;
+  lon: number;
+  tz: string;
+  sex?: "male" | "female";
+  primaryInterest: string;
 }
 
 interface CountryOpt {
@@ -60,12 +76,18 @@ export function BirthFields({
   onChange,
   errors,
   idPrefix = "b",
+  allowProfileSelection = false,
+  profilePickerLabel,
+  onProfileSelect,
 }: {
   locale: Locale;
   value: BirthValue;
   onChange: (v: BirthValue) => void;
   errors?: { date?: string; place?: string };
   idPrefix?: string;
+  allowProfileSelection?: boolean;
+  profilePickerLabel?: string;
+  onProfileSelect?: (profile: SavedBirthProfile) => void;
 }) {
   const lo = locale;
   const [manual, setManual] = React.useState(false);
@@ -77,6 +99,12 @@ export function BirthFields({
   const [cityOpts, setCityOpts] = React.useState<ComboOption[]>([]);
   const [cityLoading, setCityLoading] = React.useState(false);
   const [tzQuery, setTzQuery] = React.useState("");
+  const [profiles, setProfiles] = React.useState<SavedBirthProfile[]>([]);
+  const [profileStatus, setProfileStatus] = React.useState<
+    "idle" | "loading" | "ready" | "signed-out" | "error"
+  >("idle");
+  const [selectedProfileId, setSelectedProfileId] = React.useState<string>();
+  const [profileReload, setProfileReload] = React.useState(0);
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // tz per search hit — shown in the normalization preview; the server
   // re-resolves authoritatively from cityId.
@@ -101,6 +129,33 @@ export function BirthFields({
     };
   }, [countryReload]);
 
+  React.useEffect(() => {
+    if (!allowProfileSelection) return;
+    const controller = new AbortController();
+    setProfileStatus("loading");
+    fetch(`/api/account/profiles?locale=${lo}`, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (res.status === 401) {
+          setProfiles([]);
+          setProfileStatus("signed-out");
+          return;
+        }
+        if (!res.ok) throw new Error(`Profile lookup failed (${res.status})`);
+        const body = (await res.json()) as { profiles?: SavedBirthProfile[] };
+        setProfiles(Array.isArray(body.profiles) ? body.profiles : []);
+        setProfileStatus("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setProfiles([]);
+        setProfileStatus("error");
+      });
+    return () => controller.abort();
+  }, [allowProfileSelection, lo, profileReload]);
+
   const countryOptions: ComboOption[] = React.useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
     return countries
@@ -116,6 +171,11 @@ export function BirthFields({
   }, [countries, countryQuery, lo]);
 
   const selectedCountry = countries.find((c) => c.code === value.country);
+
+  function applyManualChange(next: BirthValue) {
+    setSelectedProfileId(undefined);
+    onChange({ ...next, profileId: undefined });
+  }
 
   function searchCity(q: string) {
     if (!value.country) return;
@@ -171,6 +231,76 @@ export function BirthFields({
 
   return (
     <div className="grid gap-4">
+      {allowProfileSelection && (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--bg)] p-3.5">
+          <Label>{profilePickerLabel ?? (lo === "zh" ? "选择出生档案" : "Choose a birth profile")}</Label>
+          {profileStatus === "loading" && (
+            <p className="text-sm text-[var(--fg-muted)]">
+              {lo === "zh" ? "正在读取你的档案…" : "Loading your profiles…"}
+            </p>
+          )}
+          {profileStatus === "ready" && profiles.length > 0 && (
+            <Select
+              value={selectedProfileId ?? ""}
+              onValueChange={(profileId) => {
+                const profile = profiles.find((item) => item.id === profileId);
+                if (!profile) return;
+                setSelectedProfileId(profileId);
+                setManual(!profile.cityId);
+                onChange({
+                  profileId: profile.id,
+                  dateISO: profile.dateISO,
+                  time: profile.time,
+                  timeKnown: profile.timeKnown,
+                  country: profile.country,
+                  cityId: profile.cityId,
+                  cityLabel: profile.cityLabel,
+                  lat: profile.lat,
+                  lon: profile.lon,
+                  tz: profile.tz,
+                });
+                onProfileSelect?.(profile);
+              }}
+              placeholder={lo === "zh" ? "选择一个人" : "Choose a person"}
+              triggerLabel={profilePickerLabel ?? (lo === "zh" ? "选择出生档案" : "Choose a birth profile")}
+              options={profiles.map((profile) => ({
+                value: profile.id,
+                label: `${profile.label} · ${profile.dateISO}${profile.cityLabel ? ` · ${profile.cityLabel}` : ""}`,
+              }))}
+            />
+          )}
+          {profileStatus === "ready" && profiles.length === 0 && (
+            <p className="text-sm text-[var(--fg-muted)]">
+              {lo === "zh" ? "还没有档案。" : "You do not have a profile yet."}{" "}
+              <Link className="text-[var(--accent)] underline-offset-4 hover:underline" href={`/${lo}/account/profiles/new`}>
+                {lo === "zh" ? "先创建一份" : "Create one"}
+              </Link>
+            </p>
+          )}
+          {profileStatus === "signed-out" && (
+            <p className="text-sm text-[var(--fg-muted)]">
+              <Link className="text-[var(--accent)] underline-offset-4 hover:underline" href={`/${lo}/account/signin`}>
+                {lo === "zh" ? "登录或使用 Access Token" : "Sign in or use an access token"}
+              </Link>{" "}
+              {lo === "zh" ? "后即可选择已保存的人。" : "to choose a saved person."}
+            </p>
+          )}
+          {profileStatus === "error" && (
+            <button
+              type="button"
+              className="text-sm text-[var(--accent)] underline-offset-4 hover:underline"
+              onClick={() => setProfileReload((n) => n + 1)}
+            >
+              {lo === "zh" ? "档案读取失败，点击重试" : "Profiles failed to load — retry"}
+            </button>
+          )}
+          {selectedProfileId && (
+            <p className="mt-2 text-xs text-[var(--fg-muted)]">
+              {lo === "zh" ? "已自动带入出生信息；如有需要，可在下方临时修改。" : "Birth details loaded automatically; you can make temporary edits below."}
+            </p>
+          )}
+        </div>
+      )}
       <div>
         <Label htmlFor={`${idPrefix}-date`}>{t(M.profileDate, lo)}</Label>
         <Input
@@ -182,7 +312,7 @@ export function BirthFields({
           max="2026-12-31"
           aria-invalid={!!errors?.date}
           aria-describedby={errors?.date ? `${idPrefix}-date-err` : undefined}
-          onChange={(e) => onChange({ ...value, dateISO: e.target.value })}
+          onChange={(e) => applyManualChange({ ...value, dateISO: e.target.value })}
         />
         <FieldError id={`${idPrefix}-date-err`}>{errors?.date}</FieldError>
       </div>
@@ -191,7 +321,7 @@ export function BirthFields({
         <Checkbox
           id={`${idPrefix}-unknown`}
           checked={!value.timeKnown}
-          onCheckedChange={(c) => onChange({ ...value, timeKnown: c !== true })}
+          onCheckedChange={(c) => applyManualChange({ ...value, timeKnown: c !== true })}
         />
         <label htmlFor={`${idPrefix}-unknown`} className="cursor-pointer text-sm leading-snug">
           {t(M.profileTimeUnknown, lo)}
@@ -205,7 +335,7 @@ export function BirthFields({
             id={`${idPrefix}-time`}
             type="time"
             value={value.time ?? ""}
-            onChange={(e) => onChange({ ...value, time: e.target.value })}
+            onChange={(e) => applyManualChange({ ...value, time: e.target.value })}
           />
         </div>
       ) : (
@@ -227,7 +357,7 @@ export function BirthFields({
               onQueryChange={setCountryQuery}
               onSelect={(opt) => {
                 setCityOpts([]);
-                onChange({
+                applyManualChange({
                   ...value,
                   country: opt?.value,
                   cityId: undefined,
@@ -272,7 +402,7 @@ export function BirthFields({
               displayValue={value.cityLabel ?? ""}
               onQueryChange={searchCity}
               onSelect={(opt) =>
-                onChange({
+                applyManualChange({
                   ...value,
                   cityId: opt?.value,
                   cityLabel: opt ? opt.label : undefined,
@@ -309,7 +439,7 @@ export function BirthFields({
                 max={90}
                 value={value.lat ?? ""}
                 onChange={(e) =>
-                  onChange({
+                  applyManualChange({
                     ...value,
                     cityId: undefined,
                     cityLabel: undefined,
@@ -328,7 +458,7 @@ export function BirthFields({
                 max={180}
                 value={value.lon ?? ""}
                 onChange={(e) =>
-                  onChange({
+                  applyManualChange({
                     ...value,
                     cityId: undefined,
                     cityLabel: undefined,
@@ -346,7 +476,7 @@ export function BirthFields({
                 value={value.tz ?? null}
                 displayValue={value.tz ?? ""}
                 onQueryChange={setTzQuery}
-                onSelect={(opt) => onChange({ ...value, cityId: undefined, cityLabel: undefined, tz: opt?.value })}
+                onSelect={(opt) => applyManualChange({ ...value, cityId: undefined, cityLabel: undefined, tz: opt?.value })}
                 options={tzOptions}
                 emptyText={t(M.comboNoResults, lo)}
                 clearText={t(M.comboClear, lo)}
