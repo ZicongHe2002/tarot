@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
     const countries = await countryOptions();
     return NextResponse.json(
       { countries },
-      { headers: { "Cache-Control": "public, max-age=86400, s-maxage=86400" } }
+      { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
   if (!/^[A-Za-z]{2}$/.test(country)) {

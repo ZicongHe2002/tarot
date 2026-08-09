@@ -111,7 +111,9 @@ export async function countryOptions(): Promise<Array<{ code: string; en: string
       zh: zh.of(r.country) ?? r.country,
     }))
     .sort((a, b) => a.en.localeCompare(b.en));
-  countryCache = { list };
+  // Never retain an empty result: the production city import can finish after
+  // an early request during deployment, and a later request must recover.
+  if (list.length > 0) countryCache = { list };
   return list;
 }
 

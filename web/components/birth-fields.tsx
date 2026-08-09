@@ -29,19 +29,29 @@ interface CountryOpt {
   zh: string;
 }
 
-// Country list is static per session — fetch once, share across instances.
-let countriesPromise: Promise<CountryOpt[]> | null = null;
+// Version the URL so browsers/CDNs that saw the empty pre-import database do
+// not keep serving that stale response. Successful lists are shared across
+// picker instances; empty/error responses are never cached in memory.
+const GEO_DATA_VERSION = "20260808";
+let countriesCache: CountryOpt[] | null = null;
+let countriesRequest: Promise<CountryOpt[]> | null = null;
 function loadCountries(): Promise<CountryOpt[]> {
-  if (!countriesPromise) {
-    countriesPromise = fetch("/api/cities")
-      .then((r) => r.json())
-      .then((j) => j.countries as CountryOpt[])
-      .catch(() => {
-        countriesPromise = null;
-        return [];
+  if (countriesCache) return Promise.resolve(countriesCache);
+  if (!countriesRequest) {
+    countriesRequest = fetch(`/api/cities?v=${GEO_DATA_VERSION}`, { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`Country lookup failed (${r.status})`);
+        const j = await r.json();
+        const list = Array.isArray(j.countries) ? (j.countries as CountryOpt[]) : [];
+        if (list.length === 0) throw new Error("Country lookup returned no countries");
+        countriesCache = list;
+        return list;
+      })
+      .finally(() => {
+        countriesRequest = null;
       });
   }
-  return countriesPromise;
+  return countriesRequest;
 }
 
 export function BirthFields({
@@ -60,6 +70,9 @@ export function BirthFields({
   const lo = locale;
   const [manual, setManual] = React.useState(false);
   const [countries, setCountries] = React.useState<CountryOpt[]>([]);
+  const [countryLoading, setCountryLoading] = React.useState(true);
+  const [countryLoadError, setCountryLoadError] = React.useState(false);
+  const [countryReload, setCountryReload] = React.useState(0);
   const [countryQuery, setCountryQuery] = React.useState("");
   const [cityOpts, setCityOpts] = React.useState<ComboOption[]>([]);
   const [cityLoading, setCityLoading] = React.useState(false);
@@ -70,8 +83,23 @@ export function BirthFields({
   const cityTzRef = React.useRef(new Map<string, string>());
 
   React.useEffect(() => {
-    loadCountries().then(setCountries);
-  }, []);
+    let active = true;
+    setCountryLoading(true);
+    setCountryLoadError(false);
+    loadCountries()
+      .then((list) => {
+        if (active) setCountries(list);
+      })
+      .catch(() => {
+        if (active) setCountryLoadError(true);
+      })
+      .finally(() => {
+        if (active) setCountryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [countryReload]);
 
   const countryOptions: ComboOption[] = React.useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -96,9 +124,15 @@ export function BirthFields({
     const country = value.country;
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/cities?country=${country}&q=${encodeURIComponent(q)}`);
+        const res = await fetch(
+          `/api/cities?country=${country}&q=${encodeURIComponent(q)}&v=${GEO_DATA_VERSION}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`City lookup failed (${res.status})`);
         const j = await res.json();
-        const cities = j.cities as Array<{ id: number; name: string; admin1: string; tz: string }>;
+        const cities = Array.isArray(j.cities)
+          ? (j.cities as Array<{ id: number; name: string; admin1: string; tz: string }>)
+          : [];
         for (const c of cities) cityTzRef.current.set(String(c.id), c.tz);
         setCityOpts(
           cities.map((c) => ({
@@ -193,9 +227,28 @@ export function BirthFields({
                 });
               }}
               options={countryOptions}
-              emptyText={t(M.comboNoResults, lo)}
+              loading={countryLoading}
+              emptyText={
+                countryLoadError
+                  ? lo === "zh"
+                    ? "国家列表加载失败，请在下方重试"
+                    : "Countries failed to load — retry below"
+                  : t(M.comboNoResults, lo)
+              }
               clearText={t(M.comboClear, lo)}
             />
+            {countryLoadError && (
+              <button
+                type="button"
+                className="mt-1.5 text-sm text-[var(--accent)] underline-offset-4 hover:underline"
+                onClick={() => {
+                  countriesCache = null;
+                  setCountryReload((n) => n + 1);
+                }}
+              >
+                {lo === "zh" ? "重新加载国家列表" : "Retry country list"}
+              </button>
+            )}
           </div>
           <div>
             <Label htmlFor={`${idPrefix}-city`}>{t(M.profileCity, lo)}</Label>
