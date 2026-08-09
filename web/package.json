@@ -41,6 +41,7 @@
     "luxon": "^3.7.2",
     "next": "16.3.0",
     "next-auth": "5.0.0-beta.32",
+    "pinyin-pro": "^3.28.2",
     "postcss": "^8.5.26",
     "prisma": "^6.19.3",
     "react": "19.2.4",

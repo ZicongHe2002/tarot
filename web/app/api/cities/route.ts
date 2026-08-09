@@ -20,6 +20,6 @@ export async function GET(req: NextRequest) {
   const cities = await searchCities({ country, q, limit: 20 });
   return NextResponse.json(
     { cities },
-    { headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600" } }
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
   );
 }

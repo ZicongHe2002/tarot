@@ -399,6 +399,7 @@ model City {
   id         Int    @id // GeoNames id
   name       String
   ascii      String
+  aliases    String @default("") // comma-separated GeoNames alternate/local names
   country    String // ISO-3166 alpha-2
   admin1     String @default("") // state/province display name
   lat        Float

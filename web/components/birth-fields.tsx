@@ -32,7 +32,7 @@ interface CountryOpt {
 // Version the URL so browsers/CDNs that saw the empty pre-import database do
 // not keep serving that stale response. Successful lists are shared across
 // picker instances; empty/error responses are never cached in memory.
-const GEO_DATA_VERSION = "20260808";
+const GEO_DATA_VERSION = "20260809-zh";
 let countriesCache: CountryOpt[] | null = null;
 let countriesRequest: Promise<CountryOpt[]> | null = null;
 function loadCountries(): Promise<CountryOpt[]> {

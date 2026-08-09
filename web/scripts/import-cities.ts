@@ -24,11 +24,15 @@ async function main() {
   const citiesFile = path.join(GEO_DIR, "cities1000.txt");
   const citiesZip = path.join(GEO_DIR, "cities1000.zip");
   const existing = await prisma.city.count();
+  const existingWithAliases =
+    existing > 0 ? await prisma.city.count({ where: { aliases: { not: "" } } }) : 0;
 
   // A normal Render restart should not re-import 170k rows. If an earlier
   // import was interrupted, clear the partial table and rebuild it below.
-  if (existing >= 150_000) {
-    console.log(`City table already has ${existing} rows — import skipped.`);
+  if (existing >= 150_000 && existingWithAliases >= 120_000) {
+    console.log(
+      `City table already has ${existing} rows (${existingWithAliases} with local aliases) — import skipped.`
+    );
     return;
   }
 
@@ -49,7 +53,9 @@ async function main() {
   }
   const admin1 = await loadAdmin1();
   if (existing > 0) {
-    console.log(`City table has only ${existing} rows — clearing interrupted import.`);
+    console.log(
+      `Refreshing city table: ${existing} rows, ${existingWithAliases} with local aliases.`
+    );
     await prisma.city.deleteMany();
   }
 
@@ -59,7 +65,7 @@ async function main() {
   });
 
   type Row = {
-    id: number; name: string; ascii: string; country: string;
+    id: number; name: string; ascii: string; aliases: string; country: string;
     admin1: string; lat: number; lon: number; tz: string; population: number;
   };
   let batch: Row[] = [];
@@ -79,6 +85,7 @@ async function main() {
     const id = Number(f[0]);
     const name = f[1];
     const ascii = f[2] || f[1];
+    const aliases = f[3] || "";
     const lat = Number(f[4]);
     const lon = Number(f[5]);
     const country = f[8];
@@ -90,6 +97,7 @@ async function main() {
       id,
       name,
       ascii: ascii.toLowerCase(),
+      aliases,
       country,
       admin1: admin1.get(`${country}.${admin1Code}`) ?? "",
       lat,

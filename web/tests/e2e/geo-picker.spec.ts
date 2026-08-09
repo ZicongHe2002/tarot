@@ -11,6 +11,7 @@ test("Chinese country search selects China and unlocks city search", async ({ pa
 
   const city = page.getByRole("combobox", { name: "出生城市" });
   await expect(city).toBeEnabled();
-  await city.fill("beijing");
-  await expect(page.getByRole("option", { name: /Beijing/ }).first()).toBeVisible();
+  await city.fill("杭州");
+  await page.getByRole("option", { name: /Hangzhou/ }).first().click();
+  await expect(city).toHaveValue(/Hangzhou/);
 });

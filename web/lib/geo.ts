@@ -2,6 +2,7 @@
 // (170k+ cities, 246 countries, per-city IANA timezone).
 import { prisma } from "./prisma";
 import type { Locale } from "./config";
+import { pinyin } from "pinyin-pro";
 
 export interface CityHit {
   id: number;
@@ -19,17 +20,37 @@ export async function searchCities(opts: {
   limit?: number;
 }): Promise<CityHit[]> {
   const q = (opts.q ?? "").trim().toLowerCase();
+  const queryTerms = new Set<string>();
+  if (q) queryTerms.add(q);
+
+  // GeoNames stores most Chinese city names in Latin script. Convert a Han
+  // query such as “杭州” or “北京市” to searchable variants automatically.
+  if (/\p{Script=Han}/u.test(q)) {
+    const withoutSuffix = q.replace(/[市县区]$/u, "");
+    const syllables = pinyin(withoutSuffix, { toneType: "none", type: "array" })
+      .map((part) => part.toLowerCase())
+      .filter(Boolean);
+    if (syllables.length > 0) {
+      queryTerms.add(syllables.join(""));
+      queryTerms.add(syllables.join("'"));
+      queryTerms.add(syllables.join(" "));
+      queryTerms.add(syllables.join("-"));
+    }
+  }
+
+  const terms = [...queryTerms].filter(Boolean);
   const rows = await prisma.city.findMany({
     where: {
       country: opts.country.toUpperCase(),
-      ...(q
+      ...(terms.length > 0
         ? {
-            OR: [
-              { ascii: { startsWith: q } },
-              { name: { startsWith: q } },
+            OR: terms.flatMap((term) => [
+              { ascii: { startsWith: term } },
+              { name: { startsWith: term } },
+              { aliases: { contains: term } },
               // match secondary words: "new yo" hits, but also "york" → "New York"
-              { ascii: { contains: ` ${q}` } },
-            ],
+              { ascii: { contains: ` ${term}` } },
+            ]),
           }
         : {}),
     },
