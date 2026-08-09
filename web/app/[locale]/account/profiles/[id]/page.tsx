@@ -5,6 +5,7 @@ import { getSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { SignInPrompt } from "@/components/account/signin-prompt";
 import { ProfileForm } from "@/components/account/profile-form";
+import { cityById, cityLabel } from "@/lib/geo";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -33,6 +34,7 @@ export default async function EditProfilePage({
   // Ownership check server-side; unknown or foreign ids 404 (spec §18).
   const profile = await prisma.birthProfile.findFirst({ where: { id, userId: user.id } });
   if (!profile) notFound();
+  const city = profile.cityId ? await cityById(profile.cityId) : null;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
@@ -59,7 +61,9 @@ export default async function EditProfilePage({
             dateISO: profile.dateISO,
             time: profile.time ?? undefined,
             timeKnown: profile.timeKnown,
+            country: city?.country ?? profile.country ?? undefined,
             cityId: profile.cityId ?? undefined,
+            cityLabel: city ? cityLabel(city, locale) : profile.cityLabel ?? undefined,
             lat: profile.lat,
             lon: profile.lon,
             tz: profile.tz,

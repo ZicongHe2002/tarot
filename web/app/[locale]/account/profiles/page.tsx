@@ -8,6 +8,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SignInPrompt } from "@/components/account/signin-prompt";
 import { DeleteProfileButton } from "@/components/account/delete-profile-button";
+import { cityById, cityLabel as localizedCityLabel } from "@/lib/geo";
 
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -35,6 +36,16 @@ export default async function ProfilesPage({ params }: { params: Promise<{ local
         orderBy: { createdAt: "asc" },
       })
     : [];
+  const cityIds = [...new Set(profiles.map((profile) => profile.cityId).filter(Boolean))] as string[];
+  const cityLabelPairs = await Promise.all(
+    cityIds.map(async (id): Promise<[string, string] | null> => {
+      const city = await cityById(id);
+      return city ? [id, localizedCityLabel(city, locale)] : null;
+    })
+  );
+  const localizedCityLabels = new Map(
+    cityLabelPairs.filter((entry): entry is [string, string] => entry !== null)
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 sm:py-14">
@@ -91,7 +102,8 @@ export default async function ProfilesPage({ params }: { params: Promise<{ local
                       <p className="mt-2 text-sm text-[var(--fg-muted)]">
                         {p.dateISO}
                         {" · "}
-                        {p.cityLabel ??
+                        {(p.cityId ? localizedCityLabels.get(p.cityId) : undefined) ??
+                          p.cityLabel ??
                           (locale === "zh"
                             ? `坐标 ${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`
                             : `Coordinates ${p.lat.toFixed(2)}, ${p.lon.toFixed(2)}`)}

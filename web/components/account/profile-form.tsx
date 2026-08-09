@@ -20,7 +20,9 @@ export interface ProfileFormInitial {
   dateISO: string;
   time?: string;
   timeKnown: boolean;
+  country?: string;
   cityId?: string;
+  cityLabel?: string;
   lat?: number;
   lon?: number;
   tz?: string;
@@ -53,7 +55,9 @@ export function ProfileForm({
     dateISO: initial?.dateISO ?? "",
     time: initial?.time,
     timeKnown: initial?.timeKnown ?? true,
+    country: initial?.country,
     cityId: initial?.cityId,
+    cityLabel: initial?.cityLabel,
     lat: initial?.lat,
     lon: initial?.lon,
     tz: initial?.tz,

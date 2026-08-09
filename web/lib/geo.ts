@@ -3,15 +3,127 @@
 import { prisma } from "./prisma";
 import type { Locale } from "./config";
 import { pinyin } from "pinyin-pro";
+import OpenCC from "opencc-js";
 
 export interface CityHit {
   id: number;
   name: string;
+  nameZh?: string;
+  admin1: string;
+  admin1Zh?: string;
+  country: string;
+  lat: number;
+  lon: number;
+  tz: string;
+}
+
+const CN_ADMIN_ZH: Record<string, string> = {
+  Anhui: "安徽",
+  Beijing: "北京",
+  Chongqing: "重庆",
+  Fujian: "福建",
+  Gansu: "甘肃",
+  Guangdong: "广东",
+  Guangxi: "广西",
+  Guizhou: "贵州",
+  Hainan: "海南",
+  Hebei: "河北",
+  Heilongjiang: "黑龙江",
+  Henan: "河南",
+  Hubei: "湖北",
+  Hunan: "湖南",
+  "Inner Mongolia": "内蒙古",
+  Jiangsu: "江苏",
+  Jiangxi: "江西",
+  Jilin: "吉林",
+  Liaoning: "辽宁",
+  Ningxia: "宁夏",
+  Qinghai: "青海",
+  Shaanxi: "陕西",
+  Shandong: "山东",
+  Shanghai: "上海",
+  Shanxi: "山西",
+  Sichuan: "四川",
+  Tianjin: "天津",
+  Tibet: "西藏",
+  Xinjiang: "新疆",
+  Yunnan: "云南",
+  Zhejiang: "浙江",
+};
+
+const traditionalToSimplified = OpenCC.Converter({ from: "tw", to: "cn" });
+const japaneseToSimplified = OpenCC.Converter({ from: "jp", to: "cn" });
+
+function simplifiedChinese(value: string): string {
+  return traditionalToSimplified(japaneseToSimplified(value));
+}
+
+function latinKey(value: string): string {
+  return value
+    .normalize("NFKD")
+    .replace(/\p{Mark}/gu, "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase();
+}
+
+function bestChineseAlias(
+  aliases: string,
+  primaryName: string,
+  asciiName: string,
+  preferredQuery?: string
+): string | undefined {
+  const candidates = aliases
+    .split(",")
+    .map((alias) => alias.trim())
+    .filter(
+      (alias) =>
+        /\p{Script=Han}/u.test(alias) &&
+        !/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(alias)
+    )
+    .map(simplifiedChinese);
+  const unique = [...new Set(candidates)];
+  if (unique.length === 0) return undefined;
+
+  const baseName = (value: string) => value.replace(/[市县区镇乡]$/u, "");
+  if (preferredQuery && /\p{Script=Han}/u.test(preferredQuery)) {
+    const preferred = baseName(simplifiedChinese(preferredQuery));
+    if (unique.some((candidate) => baseName(candidate) === preferred)) return preferred;
+  }
+
+  const primaryKeys = new Set([latinKey(primaryName), latinKey(asciiName)]);
+  const primaryMatches = unique.filter((candidate) => {
+    const romanized = pinyin(baseName(candidate), { toneType: "none", type: "array" }).join("");
+    return primaryKeys.has(latinKey(romanized));
+  });
+  if (primaryMatches.length > 0) {
+    return primaryMatches.sort((a, b) => a.length - b.length)[0].replace(/[市县区镇乡]$/u, "");
+  }
+
+  return unique[0].replace(/[市县区镇乡]$/u, "");
+}
+
+function toCityHit(c: {
+  id: number;
+  name: string;
+  ascii: string;
+  aliases: string;
   admin1: string;
   country: string;
   lat: number;
   lon: number;
   tz: string;
+}, preferredQuery?: string): CityHit {
+  return {
+    id: c.id,
+    name: c.name,
+    nameZh: bestChineseAlias(c.aliases, c.name, c.ascii, preferredQuery),
+    admin1: c.admin1,
+    admin1Zh: c.country === "CN" ? CN_ADMIN_ZH[c.admin1] : undefined,
+    country: c.country,
+    lat: c.lat,
+    lon: c.lon,
+    tz: c.tz,
+  };
 }
 
 export async function searchCities(opts: {
@@ -57,28 +169,20 @@ export async function searchCities(opts: {
     orderBy: { population: "desc" },
     take: Math.min(opts.limit ?? 20, 50),
   });
-  return rows.map((c) => ({
-    id: c.id,
-    name: c.name,
-    admin1: c.admin1,
-    country: c.country,
-    lat: c.lat,
-    lon: c.lon,
-    tz: c.tz,
-  }));
+  return rows.map((city) => toCityHit(city, q));
 }
 
 export async function cityById(id: number | string): Promise<CityHit | null> {
   const num = typeof id === "string" ? Number(id) : id;
   if (!Number.isInteger(num) || num <= 0) return null;
   const c = await prisma.city.findUnique({ where: { id: num } });
-  return c
-    ? { id: c.id, name: c.name, admin1: c.admin1, country: c.country, lat: c.lat, lon: c.lon, tz: c.tz }
-    : null;
+  return c ? toCityHit(c) : null;
 }
 
-export function cityLabel(c: CityHit): string {
-  return c.admin1 ? `${c.name}, ${c.admin1}` : c.name;
+export function cityLabel(c: CityHit, locale: Locale = "en"): string {
+  const name = locale === "zh" ? c.nameZh ?? c.name : c.name;
+  const admin1 = locale === "zh" ? c.admin1Zh ?? c.admin1 : c.admin1;
+  return admin1 ? `${name}${locale === "zh" ? "，" : ", "}${admin1}` : name;
 }
 
 /**

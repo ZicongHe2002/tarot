@@ -32,7 +32,7 @@ interface CountryOpt {
 // Version the URL so browsers/CDNs that saw the empty pre-import database do
 // not keep serving that stale response. Successful lists are shared across
 // picker instances; empty/error responses are never cached in memory.
-const GEO_DATA_VERSION = "20260809-zh";
+const GEO_DATA_VERSION = "20260809-zh-labels";
 let countriesCache: CountryOpt[] | null = null;
 let countriesRequest: Promise<CountryOpt[]> | null = null;
 function loadCountries(): Promise<CountryOpt[]> {
@@ -131,15 +131,26 @@ export function BirthFields({
         if (!res.ok) throw new Error(`City lookup failed (${res.status})`);
         const j = await res.json();
         const cities = Array.isArray(j.cities)
-          ? (j.cities as Array<{ id: number; name: string; admin1: string; tz: string }>)
+          ? (j.cities as Array<{
+              id: number;
+              name: string;
+              nameZh?: string;
+              admin1: string;
+              admin1Zh?: string;
+              tz: string;
+            }>)
           : [];
         for (const c of cities) cityTzRef.current.set(String(c.id), c.tz);
         setCityOpts(
-          cities.map((c) => ({
-            value: String(c.id),
-            label: c.admin1 ? `${c.name}, ${c.admin1}` : c.name,
-            hint: c.tz.split("/").pop()?.replace(/_/g, " "),
-          }))
+          cities.map((c) => {
+            const name = lo === "zh" ? c.nameZh ?? c.name : c.name;
+            const admin1 = lo === "zh" ? c.admin1Zh ?? c.admin1 : c.admin1;
+            return {
+              value: String(c.id),
+              label: admin1 ? `${name}${lo === "zh" ? "，" : ", "}${admin1}` : name,
+              hint: c.tz.split("/").pop()?.replace(/_/g, " "),
+            };
+          })
         );
       } catch {
         setCityOpts([]);

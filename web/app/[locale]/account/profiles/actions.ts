@@ -39,7 +39,7 @@ async function resolvePlace(d: Parsed) {
     if (!city) return null;
     return {
       cityId: String(city.id),
-      cityLabel: geoCityLabel(city),
+      cityLabel: geoCityLabel(city, d.locale),
       country: city.country as string | null,
       tz: city.tz,
       lat: city.lat,

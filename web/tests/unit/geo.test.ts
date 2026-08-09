@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { searchCities, cityById, resolveBirthPlace, countryOptions, isValidTimeZone } from "@/lib/geo";
+import { searchCities, cityById, cityLabel, resolveBirthPlace, countryOptions, isValidTimeZone } from "@/lib/geo";
 
 // Requires the seeded City table (npm run db:cities).
 describe("world city database", () => {
@@ -76,12 +76,40 @@ describe("world city database", () => {
     ["珠海", "Zhuhai"],
   ])("finds %s by its Chinese name", async (query, expectedName) => {
     const hits = await searchCities({ country: "CN", q: query });
-    expect(hits.some((city) => city.name === expectedName)).toBe(true);
+    const match = hits.find((city) => city.name === expectedName);
+    expect(match).toBeDefined();
+    expect(match?.nameZh).toBe(query.replace(/市$/, ""));
   });
 
   it("ranks by population and matches second words", async () => {
     const york = await searchCities({ country: "US", q: "york" });
     expect(york[0].name).toBe("New York City"); // " york" secondary-word match, top by population
+  });
+
+  it("returns localized Chinese city and province labels", async () => {
+    const hangzhou = (await searchCities({ country: "CN", q: "杭州" }))[0];
+    expect(hangzhou.nameZh).toBe("杭州");
+    expect(hangzhou.admin1Zh).toBe("浙江");
+    expect(cityLabel(hangzhou, "zh")).toBe("杭州，浙江");
+    expect(cityLabel(hangzhou, "en")).toBe("Hangzhou, Zhejiang");
+  });
+
+  it.each([
+    ["深圳", "Shenzhen"],
+    ["成都", "Chengdu"],
+    ["长沙", "Changsha"],
+    ["佛山", "Foshan"],
+    ["贵阳", "Guiyang"],
+    ["长春", "Changchun"],
+    ["银川", "Yinchuan"],
+    ["洛阳", "Luoyang"],
+  ])("keeps the canonical simplified label for %s when reloading by id", async (query, name) => {
+    const match = (await searchCities({ country: "CN", q: query })).find(
+      (city) => city.name === name
+    );
+    expect(match).toBeDefined();
+    const reloaded = await cityById(match!.id);
+    expect(reloaded?.nameZh).toBe(query);
   });
 
   it("empty query returns the country's biggest cities", async () => {
